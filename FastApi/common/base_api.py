@@ -21,9 +21,9 @@ class ApiDriver(object):
 
 
 def get():
-    resp = session.get(url="https://wstatic.apizl.com/tools/upload/201901/1146741545.png?w=50&h=50", verify=False)
+    resp = session.get(url='https://wstatic.apizl.com/tools/upload/201901/1146741545.png?w=50&h=50', verify=False)
     print(resp.content)
-    print("===================================")
+    print('===================================')
     print(resp.status_code)
     return resp.status_code
 

@@ -1,6 +1,0 @@
-2021-07-26 10:22:55,543 - E:\PycharmProjects\python3Project\FastApi\scripts\demo\test_demo.py[line:12] - INFO: -----这是测试用例预制步骤-----
-2021-07-26 10:22:55,559 - E:\PycharmProjects\python3Project\FastApi\scripts\demo\test_demo.py[line:17] - INFO: -----这是测试用例执行步骤-----
-2021-07-26 10:22:55,559 - E:\PycharmProjects\python3Project\FastApi\scripts\demo\test_demo.py[line:21] - INFO: -----这是测试用例清理环境操作-----
-2021-07-26 10:27:12,708 - E:\PycharmProjects\Test_Automatic\FastApi\scripts\demo\test_demo.py[line:12] - INFO: -----这是测试用例预制步骤-----
-2021-07-26 10:27:12,708 - E:\PycharmProjects\Test_Automatic\FastApi\scripts\demo\test_demo.py[line:19] - INFO: -----这是测试用例执行步骤-----
-2021-07-26 10:27:12,708 - E:\PycharmProjects\Test_Automatic\FastApi\scripts\demo\test_demo.py[line:23] - INFO: -----这是测试用例清理环境操作-----
