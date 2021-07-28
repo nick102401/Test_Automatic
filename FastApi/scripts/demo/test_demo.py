@@ -1,8 +1,8 @@
 import allure
 
-from FastApi.common import log
+from FastApi.common.log import Logger
 
-log = log.MyLog()
+log = Logger().logger
 
 
 def setup():

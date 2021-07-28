@@ -5,12 +5,14 @@
 import json
 import traceback
 
-from FastApi.common import log
+from FastApi.common.log import Logger
+
+log = Logger().logger
 
 
 class Assertions:
     def __init__(self):
-        self.log = log.MyLog()
+        pass
 
     @staticmethod
     def assert_status_code(status_code, expected_code):
@@ -99,12 +101,12 @@ class Assertions:
 
 
 def log_error(e, actual, expected):
-    log.MyLog.error(str(e))
-    log.MyLog.error('actual results is %s, expected results is %s ' % (actual, expected))
+    log.error(str(e))
+    log.error('actual results is %s, expected results is %s ' % (actual, expected))
     # config = Config.Read_config()
     # config.set_conf('results', 'final_results', 'False')
 
 
 if __name__ == '__main__':
     assertion = Assertions()
-    assertion.assert_in_text('123456', '123')
+    assertion.assert_in_text('123456', '1237')
