@@ -21,8 +21,10 @@ def create_html_body(case_body):
     <table align="center" width="80%" bgcolor="#00E3E3" BORDER=3 cellspacing=3>
         <!--页头-->
         <tr align="center" >
-            <td>通过数</td>
+            <td>特性名称</td>
             <td>总用例数</td>
+            <td>通过数</td>
+            <td>失败数</td>
             <td>通过率</td>
             <td>执行时间</td>
         </tr>
@@ -62,10 +64,11 @@ class SendMail:
         with open(log_file, 'r', encoding='utf-8') as f:
             summary = json.loads(f.read())['report']['summary']
             passed = summary['passed']
+            failed = summary['num_tests'] - summary['passed']
             num_tests = summary['num_tests']
             pass_rate = '{:.2%}'.format(passed / num_tests)
             duration = round(summary['duration'] / 3600, 1)
-            demoBody = td % passed + td % num_tests + td % pass_rate + td % duration
+            demoBody = td % 'demo测试' + td % num_tests + td % passed + td % failed + td % pass_rate + td % duration
 
         # 邮件正文
         html_body = create_html_body(demoBody)
@@ -74,7 +77,7 @@ class SendMail:
         tm = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
 
         message['Subject'] = Header("接口自动化测试报告" + "_" + tm, 'utf-8')
-        message['From'] = Header("自动发送", 'utf-8')  # 邮件里展示用户名
+        message['From'] = Header("本地定时发送", 'utf-8')  # 邮件里展示用户名
         message['To'] = receivers
 
         message.attach(MIMEText(html_body, 'html', 'utf-8'))
