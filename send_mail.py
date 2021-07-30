@@ -14,24 +14,31 @@ def create_html_body(case_body):
     html_body = '''
     <!DOCTYPE html>
     <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-    </head>
-    <body>
-    <table align="center" width="80%" bgcolor="#00E3E3" BORDER=3 cellspacing=3>
-        <!--页头-->
-        <tr align="center" >
-            <td>特性名称</td>
-            <td>总用例数</td>
-            <td>通过数</td>
-            <td>失败数</td>
-            <td>通过率</td>
-            <td>执行时间</td>
-        </tr>
-        <!--内容-->
-        <tr align="center" >''' + case_body + '''</tr>
-    </table>
-    </body>
+        <head>
+            <meta charset="UTF-8">
+        </head>
+        <body>
+            <h1><center><font>以下是总体特性通过率信息</font><center></h1>
+            <br>
+            <hr>
+            <br>
+            项目描述：**********************<br>
+            <br>
+            <hr>
+            <table align="center" width="80%" bgcolor="#00E3E3" BORDER=3 cellspacing=3>
+                <!--页头-->
+                <tr align="center" >
+                    <td>特性名称</td>
+                    <td>总用例数</td>
+                    <td>通过数</td>
+                    <td>失败数</td>
+                    <td>通过率</td>
+                    <td>执行时间</td>
+                </tr>
+                <!--内容-->
+                <tr align="center" >''' + case_body + '''</tr>
+            </table>
+        </body>
     </html>
     '''
     return html_body
@@ -77,7 +84,7 @@ class SendMail:
         tm = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
 
         message['Subject'] = Header("接口自动化测试报告" + "_" + tm, 'utf-8')
-        message['From'] = Header("本地定时发送", 'utf-8')  # 邮件里展示用户名
+        message['From'] = Header("**执行详细信息", 'utf-8')  # 邮件里展示用户名
         message['To'] = receivers
 
         message.attach(MIMEText(html_body, 'html', 'utf-8'))
