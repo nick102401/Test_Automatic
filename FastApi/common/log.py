@@ -33,11 +33,11 @@ class Logger(object):
     create_file(err_file)
 
     def __init__(self, filename=log_file, level='debug', when='D', backCount=3,
-                 fmt='%(asctime)s - %(pathname)s[line:%(lineno)d] - %(levelname)s: %(message)s'):
+                 fmt='%(asctime)s %(message)s'):
         self.logger = logging.getLogger(filename)
-        format_str = logging.Formatter(fmt)  # 设置日志格式
         self.logger.setLevel(self.level_relations.get(level))  # 设置日志级别
         sh = logging.StreamHandler()  # 往屏幕上输出
+        format_str = logging.Formatter(fmt)  # 设置日志格式
         sh.setFormatter(format_str)  # 设置屏幕上显示的格式
 
         # 实例化TimedRotatingFileHandler

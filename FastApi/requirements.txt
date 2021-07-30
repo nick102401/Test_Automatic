@@ -40,6 +40,7 @@ pytest-metadata
 pywin32
 PyYAML
 requests
+requests_toolbelt
 robotframework
 robotframework-appiumlibrary
 robotframework-ftplibrary
