@@ -57,7 +57,7 @@ class SendMail:
         td = '<td>%s</td>'
 
         # json日志存放路径
-        path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        path = os.path.dirname(__file__)
         log_file = path + '/run/demo.json'
 
         # 解析json文件
