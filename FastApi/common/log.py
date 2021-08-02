@@ -33,7 +33,7 @@ class Logger(object):
     create_file(err_file)
 
     def __init__(self, filename=log_file, level='debug', when='D', backCount=3,
-                 fmt='%(asctime)s %(message)s'):
+                 fmt='%(asctime)s %(levelname)s %(message)s'):
         self.logger = logging.getLogger(filename)
         self.logger.setLevel(self.level_relations.get(level))  # 设置日志级别
         sh = logging.StreamHandler()  # 往屏幕上输出
@@ -56,7 +56,7 @@ class Logger(object):
         self.logger.addHandler(th)
 
         # 代码报错单独记录错误日志
-        if level == 'debug' or 'error':
+        if level == 'error':
             filename = self.err_file
             th = handlers.TimedRotatingFileHandler(filename=filename, when=when, backupCount=backCount,
                                                    encoding='utf-8')

@@ -28,5 +28,5 @@ class ProjectsMgt(Common):
 
 if __name__ == '__main__':
     pv = ProjectsMgt()
-    pv.query_project()
+    # pv.query_project()
     print(pv.query_project_id_by_name('P1'))

@@ -1,2 +1,4 @@
 err.log
 log.log
+*.pyc
+*.html

@@ -105,7 +105,7 @@ def req_exec(method, url, data=None, headers=None, username=env.USERNAME, passwo
     log.info('[' + method + ']:' + url)
     if method != 'GET':
         log.info('[Data]:' + str(data))
-    log.info('[Resp]:' + str(response))
+    log.info('[RESP]:' + str(response))
     return response
 
 
