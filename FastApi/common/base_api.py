@@ -3,13 +3,22 @@ import json
 import requests
 import warnings
 from requests_toolbelt import MultipartEncoder
+
+from FastApi.common.data_handle import MultipartFormData
 from FastApi.common.log import Logger
 from FastApi.conf import env
 
 warnings.filterwarnings('ignore')
 log = Logger().logger
 
-header = {'Content-Type': 'application/json;charset=UTF-8'}
+header = {
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'zh-CN,zh;q=0.9',
+    'Connection': 'keep-alive',
+    'Content-Type': 'application/json;charset=UTF-8',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                  'Chrome/92.0.4515.107 Safari/537.36 '
+}
 
 
 class ApiDriver:
@@ -49,6 +58,11 @@ class ApiDriver:
         return dict({'content': json.loads(response.text), 'retCode': response.status_code})
 
     @staticmethod
+    def patch(url, data, headers=None):
+        response = requests.patch(url=url, data=data, headers=headers, verify=False)
+        return dict({'content': json.loads(response.text), 'retCode': response.status_code})
+
+    @staticmethod
     def put(url, data, headers=None):
         response = requests.put(url=url, data=data, headers=headers, verify=False)
         return dict({'content': json.loads(response.text), 'retCode': response.status_code})
@@ -79,23 +93,26 @@ def req_exec(method, url, data=None, headers=None, username=env.USERNAME, passwo
     if headers is None:
         headers = header
 
-    # 默认返回
-    response = None
-
     # form data数据处理
-    if data:
-        m = MultipartEncoder(fields=data)
-        header['Content-Type'] = m.content_type
+    print_data = data
+    if method != 'GET':
+        headers['Content-Type'] = 'multipart/form-data; boundary=----WebKitFormBoundaryE5rQMWaGDbOsS38U'
+        mfd = MultipartFormData()
+        data = mfd.format(reqData=data, headers=headers)
 
     # url拼接
     if not url.startswith('/'):
         url = '/' + url
     url = 'http://' + env.HOST + ':' + env.PORT + url
 
+    # 默认返回
+    response = None
     if method == 'GET':
         response = api_driver.get(url, headers=headers)
     elif method == 'POST':
         response = api_driver.post(url, data, headers=headers)
+    elif method == 'PATCH':
+        response = api_driver.patch(url, data, headers=headers)
     elif method == 'PUT':
         response = api_driver.put(url, data, headers=headers)
     elif method == 'DELETE':
@@ -104,7 +121,7 @@ def req_exec(method, url, data=None, headers=None, username=env.USERNAME, passwo
     # 日志打印
     log.info('[' + method + ']:' + url)
     if method != 'GET':
-        log.info('[Data]:' + str(data))
+        log.info('[DATA]:' + str(print_data))
     log.info('[RESP]:' + str(response))
     return response
 
@@ -112,7 +129,8 @@ def req_exec(method, url, data=None, headers=None, username=env.USERNAME, passwo
 if __name__ == '__main__':
     driver = ApiDriver(env.USERNAME, env.PASSWORD)
     # print(driver.login())
-    print(driver.get_token())
+    # print(driver.get_token())
+    # print(is_login())
     # resp = req_exec(method='POST',
     #                 url='http://192.168.96.127:9999/api/sys/login',
     #                 data='{"param_a":"YWRtaW4=","param_p":"31e7d8e0dd5be7db38333cce7b342c5d"}')
