@@ -21,7 +21,7 @@ def get_value_from_resp(in_dict, target_key, locate_key="", locate_value=".*"):
     if ret:
         return ret
     else:
-        log.error("get_value_from_resp failed!")
+        log.error('get_value_from_resp failed!')
         return False
 
 
@@ -51,6 +51,11 @@ def recursion_search(in_dict, target_key, locate_key="", locate_value=""):
                         return in_dict[target_key]
                 elif k == target_key:
                     return v
+    elif isinstance(in_dict, str):
+        in_dict = json.loads(in_dict)
+        ret = recursion_search(in_dict, target_key, locate_key, locate_value)
+        if ret:
+            return ret
 
 
 def bjs_to_utc(bjs_time):

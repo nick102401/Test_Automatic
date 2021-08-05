@@ -73,7 +73,7 @@ class ApiDriver:
         return dict({'content': json.loads(response.text), 'retCode': response.status_code})
 
 
-def req_exec(method, url, data=None, headers=None, username=env.USERNAME, password=env.PASSWORD):
+def req_exec(method, url, data=None, headers=None, username=env.USERNAME_PG, password=env.USER_PWD):
     """
     接口执行
     :param method:接口请求方式
@@ -99,6 +99,8 @@ def req_exec(method, url, data=None, headers=None, username=env.USERNAME, passwo
         headers['Content-Type'] = 'multipart/form-data; boundary=----WebKitFormBoundaryE5rQMWaGDbOsS38U'
         mfd = MultipartFormData()
         data = mfd.format(reqData=data, headers=headers)
+        # 中文参数统一处理
+        data = data.encode('utf-8')
 
     # url拼接
     if not url.startswith('/'):
@@ -127,7 +129,7 @@ def req_exec(method, url, data=None, headers=None, username=env.USERNAME, passwo
 
 
 if __name__ == '__main__':
-    driver = ApiDriver(env.USERNAME, env.PASSWORD)
+    driver = ApiDriver(env.USERNAME_PG, env.USER_PWD)
     # print(driver.login())
     # print(driver.get_token())
     # print(is_login())
