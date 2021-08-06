@@ -122,8 +122,9 @@ def req_exec(method, url, data=None, headers=None, username=env.USERNAME_PG, pas
 
     # 日志打印
     log.info('[' + method + ']:' + url)
-    if method != 'GET':
-        log.info('[DATA]:' + str(print_data))
+    if method != 'GET' and print_data:
+        log.info(
+            '[DATA]:\n' + json.dumps(print_data, sort_keys=True, indent=4, separators=(', ', ': '), ensure_ascii=False))
     log.info('[RESP]:' + str(response))
     return response
 

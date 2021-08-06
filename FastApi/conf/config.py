@@ -23,6 +23,10 @@ class ReadConfig:
         value = self.config.get('database', param)
         return value
 
+    def get_color(self, param):
+        value = self.config.get('color', param)
+        return value
+
     def get_conf(self, section, param):
         value = self.config.get(section, param)
         return value

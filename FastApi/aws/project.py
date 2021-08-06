@@ -1,4 +1,4 @@
-import json
+import ast
 import time
 
 from FastApi.aws.user import User
@@ -7,6 +7,7 @@ from FastApi.aws.tempate import Temps
 from FastApi.aws.homepage import PersonalHomepage
 from FastApi.common.helper import get_value_from_resp, utc_to_bjs, utc_to_gmt, bjs_to_utc
 from FastApi.conf import env
+from FastApi.conf.config import ReadConfig
 
 
 class Project(PersonalHomepage):
@@ -17,21 +18,25 @@ class Project(PersonalHomepage):
     def __init__(self):
         super(Project, self).__init__()
 
+    """
+    项目基本配置
+    """
+
     @staticmethod
     def create_project(projectName, startTime='', endTime='', templateName='基本模板', description='', valid=True,
                        userName=env.USERNAME_PM):
         """
         创建项目
         :param projectName: 项目名称
-        :param startTime: 项目开始时间，默认为当天 %Y-%m-%d
-        :param endTime: 项目结束时间，默认为第二天 %Y-%m-%d
-        :param templateName: 模板名称，暂为固定模板，无需入参
+        :param startTime: 项目开始日期,默认为系统当前日期 %Y-%m-%d
+        :param endTime: 项目结束日期,默认为第二天 %Y-%m-%d
+        :param templateName: 模板名称,暂为固定模板,无需入参
         :param description: 项目描述
         :param valid:
         :param userName: 默认为PM角色
         :return:
         """
-        # 获取当天日期
+        # 获取系统当前日期
         if not startTime:
             startTime = time.strftime('%Y-%m-%d', time.localtime(time.time()))
         if not endTime:
@@ -51,11 +56,7 @@ class Project(PersonalHomepage):
         }
 
         method = 'POST'
-        data = {
-            'applyStatus': 0,
-            'applyType': 4,
-            'applyUserDescription': json.dumps(applyUserDescription)
-        }
+        data = dict(applyStatus=0, applyType=4, applyUserDescription=applyUserDescription)
         url = '/api/task/case/task/projects/apply'
 
         resp = req_exec(method, url, data=data, username=userName)
@@ -75,14 +76,17 @@ class Project(PersonalHomepage):
         if pending_approvals:
             for pending_approval in pending_approvals:
                 # 获取审批事件ID
-                approveId = ''
                 applyUserDescription = pending_approval['applyUserDescription']
                 if applyUserDescription:
-                    if json.loads(applyUserDescription)['projectName'].encode('utf-8') == projectName.encode('utf-8'):
+                    if ast.literal_eval(applyUserDescription)['projectName'] == projectName:
                         approveId = pending_approval['approveId']
+                    else:
+                        raise Exception('暂无此项目申请,请核实后操作')
                 else:
-                    if pending_approval['projectName'].encode('utf-8') == projectName.encode('utf-8'):
+                    if pending_approval['projectName'] == projectName:
                         approveId = pending_approval['approveId']
+                    else:
+                        raise Exception('暂无此项目申请,请核实后操作')
 
                 method = 'PATCH'
                 data = {
@@ -94,10 +98,8 @@ class Project(PersonalHomepage):
 
                 resp = req_exec(method, url, data=data, username=userName)
                 return resp
-            else:
-                raise Exception('暂无此项目审批申请，请核实')
         else:
-            raise Exception('暂无审批申请，请核实')
+            raise Exception('暂无审批申请,请核实后操作')
 
     def modify_project(self, projectName, userName=env.USERNAME_PM, **modifyParams):
         """
@@ -123,7 +125,7 @@ class Project(PersonalHomepage):
                 modifyBody['disabled'] = 0
             modifyBody['sprintIndex'] = str(modifyBody['sprintIndex'])
             modifyBody['archive'] = str(modifyBody['archive'])
-            # UTC格式时间转GMT格式
+            # UTC格式日期转GMT格式
             modifyBody['startTime'] = utc_to_gmt(utc_to_bjs(modifyBody['startTime'].split('+')[0]))
             modifyBody['endTime'] = utc_to_gmt(utc_to_bjs(modifyBody['endTime'].split('+')[0]))
 
@@ -141,7 +143,9 @@ class Project(PersonalHomepage):
             url = '/api/task/case/task/user/projects/{0}'.format(projectId)
 
             resp = req_exec(method, url, data=data, username=userName)
-        return resp
+            return resp
+        else:
+            raise Exception('暂无此项目信息,请核实后操作')
 
     def operate_project(self, projectName, applyUserDescription='', applyType=2, filterType='filter',
                         userName=env.USERNAME_PM):
@@ -152,14 +156,14 @@ class Project(PersonalHomepage):
         :param applyType: 操作类型： 2：申请审核
                                    3：申请恢复
         :param filterType: filter:参与的项目
-                     archive:已完结项目
-                     disable:已终止项目
+                           archive:已完结项目
+                           disable:已终止项目
         :param userName: 默认为PM角色
         :return:
         """
         if applyType == 3:
             filterType = 'disable'
-        projectId = self.query_project_id_by_name(projectName, filterType=filterType)
+        projectId = self.query_project_id_by_name(projectName, filterType=filterType, userName=userName)
         method = 'POST'
         data = {
             'applyStatus': 0,
@@ -184,7 +188,7 @@ class Project(PersonalHomepage):
         :param userName: 默认为PM角色
         :return:
         """
-        projectId = self.query_project_id_by_name(projectName, filterType=filterType)
+        projectId = self.query_project_id_by_name(projectName, filterType=filterType, userName=userName)
         method = 'PATCH'
         data = {}
         url = '/api/task/case/task/user/projects/{0}/{1}'.format(projectId, operationType)
@@ -196,8 +200,8 @@ class Project(PersonalHomepage):
         """
         查询当前用户名下项目
         :param filterType: filter:参与的项目
-                     archive:已完结项目
-                     disable:已终止项目
+                           archive:已完结项目
+                           disable:已终止项目
         :param userName: 默认为PM角色
         :return:
         """
@@ -214,28 +218,556 @@ class Project(PersonalHomepage):
         根据项目名称获取项目信息
         :param projectName:
         :param filterType: filter:参与的项目
-                     archive:已完结项目
-                     disable:已终止项目
+                           archive:已完结项目
+                           disable:已终止项目
         :param userName: 默认为PM角色
         :return:
         """
         resp = self.query_projects(filterType=filterType, userName=userName)
-        for projectBody in resp['content']['data']['list']:
-            if projectBody['projectName'] == projectName:
-                return projectBody
+        projectList = resp['content']['data']['list']
+        if projectList:
+            for projectBody in resp['content']['data']['list']:
+                if projectBody['projectName'] == projectName:
+                    return projectBody
+            else:
+                raise Exception('暂无此项目信息,请核实后操作')
+        else:
+            raise Exception('暂无项目信息,请核实后操作')
 
     def query_project_id_by_name(self, projectName, filterType='filter', userName=env.USERNAME_PM):
         """
         根据项目名称获取项目ID
         :param projectName:
         :param filterType: filter:参与的项目
-                     archive:已完结项目
-                     disable:已终止项目
+                           archive:已完结项目
+                           disable:已终止项目
         :param userName: 默认为PM角色
         :return:
         """
         resp = self.query_projects(filterType=filterType, userName=userName)
-        return get_value_from_resp(resp['content'], 'projectId', 'projectName', projectName)
+        projectId = get_value_from_resp(resp['content'], 'projectId', 'projectName', projectName)
+        if projectId:
+            return projectId
+        else:
+            raise Exception('暂无此项目信息,请核实后操作')
+
+    """
+    WebHook配置
+    """
+
+    def config_web_hook(self, projectName, webUrl='', webAccessToken='', webSecret='', filterType='filter',
+                        userName=env.USERNAME_PM):
+        """
+        配置WebHook
+        :param projectName: 项目名称
+        :param webUrl: url
+        :param webAccessToken: access token
+        :param webSecret: 加签
+        :param filterType: filter:参与的项目
+                           disable:已终止项目
+        :param userName: 默认为PM角色
+        :return:
+        """
+        # 获取项目ID
+        projectId = self.query_project_id_by_name(projectName, filterType=filterType, userName=userName)
+
+        method = 'PUT'
+        data = {
+            "projectId": projectId,
+            "webUrl": webUrl,
+            "webAccess": webAccessToken,
+            "webSecret": webSecret,
+            "triggerCreate": "0",
+            "triggerUpdate": "0",
+            "triggerCancel": "0",
+            "triggerFinished": "0"
+        }
+        url = '/api/task/case/task/projects/{0}/web/hook'.format(projectId)
+
+        resp = req_exec(method, url, data=data, username=userName)
+        return resp
+
+    def query_web_hook(self, projectName, filterType='filter', userName=env.USERNAME_PM):
+        """
+        查看项目WebHook配置
+        :param projectName: 项目名称
+        :param filterType: filter:参与的项目
+                           archive:已完结项目
+                           disable:已终止项目
+        :param userName: 默认为PM角色
+        :return:
+        """
+        # 获取项目ID
+        projectId = self.query_project_id_by_name(projectName, filterType=filterType, userName=userName)
+
+        method = 'GET'
+        url = '/api/task/case/task/projects/{0}/web/hook'.format(projectId)
+
+        resp = req_exec(method, url, username=userName)
+        return resp
+
+    """
+    项目角色
+    """
+
+    def modify_role(self, roleName, projectName, filterType='filter', userName=env.USERNAME_PM, **modifyParams):
+        """
+        修改角色配置
+        :param roleName: 角色名称
+        :param projectName: 项目名称
+        :param filterType: filter:参与的项目
+                           archive:已完结项目
+                           disable:已终止项目
+        :param userName: 默认为PM角色
+        :param modifyParams: newRoleName:待修改角色名称
+                             manage:管理项目 1:是 0:否
+                             createTask:创建任务 1:是 0:否
+                             updateTask:修改任务 1:是 0:否
+        :return:
+        """
+
+        # 获取原角色配置信息
+        preRoleBody = self.query_role_info_by_name(roleName, projectName=projectName, filterType=filterType,
+                                                   userName=userName)
+
+        if preRoleBody:
+            # 获取项目ID
+            projectId = preRoleBody['projectId']
+            # 获取角色ID
+            proRoleId = preRoleBody['proRoleId']
+
+            # 复制原配置
+            modifyBody = preRoleBody
+
+            for modifyParamsKey in modifyParams.keys():
+                if modifyParamsKey == 'newRoleName':
+                    modifyBody['roleName'] = modifyParams[modifyParamsKey]
+                if modifyParamsKey == 'manage':
+                    modifyBody['manage'] = modifyParams[modifyParamsKey]
+                if modifyParamsKey == 'createTask':
+                    modifyBody['createTask'] = modifyParams[modifyParamsKey]
+                if modifyParamsKey == 'updateTask':
+                    modifyBody['updateTask'] = modifyParams[modifyParamsKey]
+
+            method = 'PATCH'
+            data = modifyBody
+            url = '/api/task/case/task/projects/{0}/roles/{1}'.format(projectId, proRoleId)
+
+            resp = req_exec(method, url, data=data, username=userName)
+            return resp
+        else:
+            raise Exception('无此角色信息,请核实后操作')
+
+    def query_roles(self, projectName, filterType='filter', userName=env.USERNAME_PM):
+        """
+        查询角色
+        :param projectName: 项目名称
+        :param filterType: filter:参与的项目
+                           archive:已完结项目
+                           disable:已终止项目
+        :param userName: 默认为PM角色
+        :return:
+        """
+        # 获取项目ID
+        projectId = self.query_project_id_by_name(projectName, filterType=filterType, userName=userName)
+
+        method = 'GET'
+        url = '/api/task/case/task/projects/{0}/roles'.format(projectId)
+
+        resp = req_exec(method, url, username=userName)
+        return resp
+
+    def query_role_info_by_name(self, roleName, projectName, filterType='filter', userName=env.USERNAME_PM):
+        """
+        根据角色名称获取角色配置信息
+        :param roleName: 角色名称
+        :param projectName: 项目名称
+        :param filterType: filter:参与的项目
+                           archive:已完结项目
+                           disable:已终止项目
+        :param userName: 默认为PM角色
+        :return:
+        """
+        resp = self.query_roles(projectName, filterType=filterType, userName=userName)
+        roleList = resp['content']['data']['list']
+
+        if roleList:
+            for role in roleList:
+                if role['roleName'] == roleName:
+                    return role
+                else:
+                    raise Exception('无此角色信息,请核实后操作')
+        else:
+            raise Exception('无角色信息,请核实后操作')
+
+    def query_role_id_by_name(self, roleName, projectName, filterType='filter', userName=env.USERNAME_PM):
+        """
+        根据角色名称获取角色ID
+        :param roleName: 角色名称
+        :param projectName: 项目名称
+        :param filterType: filter:参与的项目
+                           archive:已完结项目
+                           disable:已终止项目
+        :param userName: 默认为PM角色
+        :return:
+        """
+        resp = self.query_roles(projectName, filterType=filterType, userName=userName)
+        proRoleId = get_value_from_resp(resp['content'], 'proRoleId', 'roleName', roleName)
+        if proRoleId:
+            return proRoleId
+        else:
+            raise Exception('暂无该项目角色信息,请核实后操作')
+
+    """
+    任务状态 & BUG状态
+    >>>>>接口相同--合并处理
+    """
+
+    def modify_status(self, statusName, projectName, bugFlag=0, filterType='filter', userName=env.USERNAME_PM,
+                      **modifyParams):
+        """
+        修改角色配置
+        :param statusName: 名称
+        :param projectName: 项目名称
+        :param bugFlag: 0:任务状态
+                        1:BUG状态
+        :param filterType: filter:参与的项目
+                           archive:已完结项目
+                           disable:已终止项目
+        :param userName: 默认为PM角色
+        :param modifyParams: newStatusName:待修改名称
+                             statusColor:颜色
+                             statusType:任务状态类型 0:是 1:否 2:否 (BUG状态默认为0)
+        :return:
+        """
+
+        # 获取原状态配置信息
+        preStatusBody = self.query_status_info_by_name(statusName, projectName=projectName, bugFlag=bugFlag,
+                                                       filterType=filterType, userName=userName)
+
+        if not bugFlag:
+            statusStr = '任务状态'
+        else:
+            statusStr = 'BUG状态'
+
+        if preStatusBody:
+            # 获取项目ID
+            projectId = preStatusBody['projectId']
+            # 获取状态ID
+            taskStatusId = preStatusBody['taskStatusId']
+
+            # 复制原配置
+            modifyBody = preStatusBody
+
+            for modifyParamsKey in modifyParams.keys():
+                if modifyParamsKey == 'newStatusName':
+                    modifyBody['statusName'] = modifyParams[modifyParamsKey]
+                if modifyParamsKey == 'statusColor':
+                    modifyBody['statusColor'] = modifyParams[modifyParamsKey]
+                if modifyParamsKey == 'statusType':
+                    modifyBody['statusType'] = modifyParams[modifyParamsKey]
+
+            method = 'PATCH'
+            data = modifyBody
+            if not bugFlag:
+                url = '/api/task/case/task/projects/{0}/status/{1}'.format(projectId, taskStatusId)
+            else:
+                url = '/api/task/case/task/projects/{0}/bug/status/{1}'.format(projectId, taskStatusId)
+
+            resp = req_exec(method, url, data=data, username=userName)
+            return resp
+        else:
+            raise Exception('无此{0}信息,请核实后操作'.format(statusStr))
+
+    def query_status(self, projectName, bugFlag=0, filterType='filter', userName=env.USERNAME_PM):
+        """
+        查询任务状态或BUG状态配置
+        :param projectName: 项目名称
+        :param bugFlag: 0:任务状态
+                        1:BUG状态
+        :param filterType: filter:参与的项目
+                           archive:已完结项目
+                           disable:已终止项目
+        :param userName: 默认为PM角色
+        :return:
+        """
+        # 获取项目ID
+        projectId = self.query_project_id_by_name(projectName, filterType=filterType, userName=userName)
+
+        method = 'GET'
+        url = '/api/task/case/task/projects/{0}/status?bugFlag={1}'.format(projectId, bugFlag)
+
+        resp = req_exec(method, url, username=userName)
+        return resp
+
+    def query_status_info_by_name(self, statusName, projectName, bugFlag=0, filterType='filter',
+                                  userName=env.USERNAME_PM):
+        """
+        根据角色名称获取状态信息
+        :param statusName: 名称
+        :param projectName: 项目名称
+        :param bugFlag: 0:任务状态
+                        1:BUG状态
+        :param filterType: filter:参与的项目
+                           archive:已完结项目
+                           disable:已终止项目
+        :param userName: 默认为PM角色
+        :return:
+        """
+        if not bugFlag:
+            statusStr = '任务状态'
+        else:
+            statusStr = 'BUG状态'
+        resp = self.query_status(projectName, bugFlag=bugFlag, filterType=filterType, userName=userName)
+        statusList = resp['content']['data']['list']
+
+        if statusList:
+            for status in statusList:
+                if status['statusName'] == statusName:
+                    return status
+                else:
+                    raise Exception('无此{0}信息,请核实后操作'.format(statusStr))
+        else:
+            raise Exception('无{0}信息,请核实后操作'.format(statusStr))
+
+    def query_status_id_by_name(self, statusName, projectName, bugFlag=0, filterType='filter',
+                                userName=env.USERNAME_PM):
+        """
+        根据角色名称获取状态ID
+        :param statusName: 名称
+        :param projectName: 项目名称
+        :param bugFlag: 0:任务状态
+                        1:BUG状态
+        :param filterType: filter:参与的项目
+                           archive:已完结项目
+                           disable:已终止项目
+        :param userName: 默认为PM角色
+        :return:
+        """
+        if not bugFlag:
+            statusStr = '任务状态'
+        else:
+            statusStr = 'BUG状态'
+        resp = self.query_status(projectName, bugFlag=bugFlag, filterType=filterType, userName=userName)
+        taskStatusId = get_value_from_resp(resp['content'], 'taskStatusId', 'statusName', statusName)
+        if taskStatusId:
+            return taskStatusId
+        else:
+            raise Exception('无此{0}信息,请核实后操作'.format(statusStr))
+
+    """
+    任务类型
+    """
+
+    def modify_task_type(self, typeName, projectName, filterType='filter', userName=env.USERNAME_PM, **modifyParams):
+        """
+        修改角色配置
+        :param typeName: 名称
+        :param projectName: 项目名称
+        :param filterType: filter:参与的项目
+                           archive:已完结项目
+                           disable:已终止项目
+        :param userName: 默认为PM角色
+        :param modifyParams: newTypeName:待修改名称
+        :return:
+        """
+
+        # 获取原状态配置信息
+        preTypeBody = self.query_task_type_info_by_name(typeName, projectName=projectName, filterType=filterType,
+                                                        userName=userName)
+
+        if preTypeBody:
+            # 获取项目ID
+            projectId = preTypeBody['projectId']
+            # 获取任务类型ID
+            taskTypeId = preTypeBody['taskTypeId']
+
+            # 复制原配置
+            modifyBody = preTypeBody
+
+            for modifyParamsKey in modifyParams.keys():
+                if modifyParamsKey == 'newTypeName':
+                    modifyBody['typeName'] = modifyParams[modifyParamsKey]
+
+            method = 'PATCH'
+            data = modifyBody
+            url = '/api/task/case/task/projects/{0}/types/{1}'.format(projectId, taskTypeId)
+
+            resp = req_exec(method, url, data=data, username=userName)
+            return resp
+        else:
+            raise Exception('无此任务类型信息,请核实后操作')
+
+    def query_task_types(self, projectName, filterType='filter', userName=env.USERNAME_PM):
+        """
+        查询任务类型
+        :param projectName: 项目名称
+        :param filterType: filter:参与的项目
+                           archive:已完结项目
+                           disable:已终止项目
+        :param userName: 默认为PM角色
+        :return:
+        """
+        # 获取项目ID
+        projectId = self.query_project_id_by_name(projectName, filterType=filterType, userName=userName)
+
+        method = 'GET'
+        url = '/api/task/case/task/projects/{0}/types'.format(projectId)
+
+        resp = req_exec(method, url, username=userName)
+        return resp
+
+    def query_task_type_info_by_name(self, typeName, projectName, filterType='filter', userName=env.USERNAME_PM):
+        """
+        根据任务类型名称获取任务类型信息
+        :param typeName: 任务类型名称
+        :param projectName: 项目名称
+        :param filterType: filter:参与的项目
+                           archive:已完结项目
+                           disable:已终止项目
+        :param userName: 默认为PM角色
+        :return:
+        """
+        resp = self.query_task_types(projectName, filterType=filterType, userName=userName)
+        typeList = resp['content']['data']['list']
+
+        if typeList:
+            for typeInfo in typeList:
+                if typeInfo['typeName'] == typeName:
+                    return typeInfo
+                else:
+                    raise Exception('无此任务类型信息,请核实后操作')
+        else:
+            raise Exception('无任务类型信息,请核实后操作')
+
+    def query_task_type_id_by_name(self, typeName, projectName, filterType='filter', userName=env.USERNAME_PM):
+        """
+        根据任务类型名称获取任务类型信息
+        :param typeName: 任务类型名称
+        :param projectName: 项目名称
+        :param filterType: filter:参与的项目
+                           archive:已完结项目
+                           disable:已终止项目
+        :param userName: 默认为PM角色
+        :return:
+        """
+        resp = self.query_task_types(projectName, filterType=filterType, userName=userName)
+        taskTypeId = get_value_from_resp(resp['content'], 'taskTypeId', 'typeName', typeName)
+        if taskTypeId:
+            return taskTypeId
+        else:
+            raise Exception('无此任务类型信息,请核实后操作')
+
+    """
+    任务优先级
+    """
+
+    def modify_task_priority(self, priorityName, projectName, filterType='filter', userName=env.USERNAME_PM,
+                             **modifyParams):
+        """
+        修改角色配置
+        :param priorityName: 任务优先级名称
+        :param projectName: 项目名称
+        :param filterType: filter:参与的项目
+                           archive:已完结项目
+                           disable:已终止项目
+        :param userName: 默认为PM角色
+        :param modifyParams: newPriorityName:待修改名称
+                             priorityColor:优先级颜色
+                             defaultMark:是否默认 1:默认 0:不默认
+        :return:
+        """
+
+        # 获取原状态配置信息
+        prePriorityBody = self.query_task_priority_info_by_name(priorityName, projectName=projectName,
+                                                                filterType=filterType, userName=userName)
+
+        if prePriorityBody:
+            # 获取项目ID
+            projectId = prePriorityBody['projectId']
+            # 获取任务优先级ID
+            taskPriorityId = prePriorityBody['taskPriorityId']
+
+            # 复制原配置
+            modifyBody = prePriorityBody
+
+            for modifyParamsKey in modifyParams.keys():
+                if modifyParamsKey == 'newPriorityName':
+                    modifyBody['priorityName'] = modifyParams[modifyParamsKey]
+                if modifyParamsKey == 'priorityColor':
+                    modifyBody['priorityColor'] = modifyParams[modifyParamsKey]
+                if modifyParamsKey == 'defaultMark':
+                    modifyBody['defaultMark'] = modifyParams[modifyParamsKey]
+
+            method = 'PATCH'
+            data = modifyBody
+            url = '/api/task/case/task/projects/{0}/priorities/{1}'.format(projectId, taskPriorityId)
+
+            resp = req_exec(method, url, data=data, username=userName)
+            return resp
+        else:
+            raise Exception('无此任务优先级信息,请核实后操作')
+
+    def query_task_priorities(self, projectName, filterType='filter', userName=env.USERNAME_PM):
+        """
+        查询任务优先级
+        :param projectName: 项目名称
+        :param filterType: filter:参与的项目
+                           archive:已完结项目
+                           disable:已终止项目
+        :param userName: 默认为PM角色
+        :return:
+        """
+        # 获取项目ID
+        projectId = self.query_project_id_by_name(projectName, filterType=filterType, userName=userName)
+
+        method = 'GET'
+        url = '/api/task/case/task/projects/{0}/priorities'.format(projectId)
+
+        resp = req_exec(method, url, username=userName)
+        return resp
+
+    def query_task_priority_info_by_name(self, priorityName, projectName, filterType='filter',
+                                         userName=env.USERNAME_PM):
+        """
+        根据任务优先级名称获取任务优先级信息
+        :param priorityName: 任务优先级名称
+        :param projectName: 项目名称
+        :param filterType: filter:参与的项目
+                           archive:已完结项目
+                           disable:已终止项目
+        :param userName: 默认为PM角色
+        :return:
+        """
+        resp = self.query_task_priorities(projectName, filterType=filterType, userName=userName)
+        priorityList = resp['content']['data']['list']
+
+        if priorityList:
+            for priority in priorityList:
+                if priority['priorityName'] == priorityName:
+                    return priority
+                else:
+                    raise Exception('无此任务优先级信息,请核实后操作')
+        else:
+            raise Exception('无任务优先级信息,请核实后操作')
+
+    def query_task_priority_id_by_name(self, priorityName, projectName, filterType='filter', userName=env.USERNAME_PM):
+        """
+        根据任务优先级名称获取任务优先级信息
+        :param priorityName: 任务优先级名称
+        :param projectName: 项目名称
+        :param filterType: filter:参与的项目
+                           archive:已完结项目
+                           disable:已终止项目
+        :param userName: 默认为PM角色
+        :return:
+        """
+        resp = self.query_task_priorities(projectName, filterType=filterType, userName=userName)
+        taskPriorityId = get_value_from_resp(resp['content'], 'taskPriorityId', 'priorityName', priorityName)
+        if taskPriorityId:
+            return taskPriorityId
+        else:
+            raise Exception('无此任务优先级信息,请核实后操作')
 
 
 class Task(Project):
@@ -243,10 +775,10 @@ class Task(Project):
     项目任务
     """
 
-    def __init__(self, projectName):
+    def __init__(self, projectName, userName=env.USERNAME_PM):
         super(Task, self).__init__()
         self.user = User()
-        self.projectId = self.query_project_id_by_name(projectName)
+        self.projectId = self.query_project_id_by_name(projectName, userName=userName)
 
     def query_index_data(self, userName=env.USERNAME_PM):
         """
@@ -284,7 +816,7 @@ class Task(Project):
         else:
             broTaskId = ''
 
-        # 获取当天日期
+        # 获取系统当前日期
         if not deadLine:
             deadLine = time.strftime('%Y-%m-%d', time.localtime(time.time()))
         if not taskGetDateLine:
@@ -341,8 +873,8 @@ class Task(Project):
         修改任务
         :param taskName: 任务名称
         :param userName: 默认为PM角色
-        :param modifyParams: 待修改入参：newTaskName:待修改任务名称
-                                       description:任务描述
+        :param modifyParams: 待修改入参：newTaskName: 待修改任务名称
+                                       description: 任务描述
                                        points: 任务点数
                                        countedPoints: 有效点数
                                        deadLine: 格式：%Y-%m-%d
@@ -369,7 +901,7 @@ class Task(Project):
             modifyBody['countedPoints'] = int(modifyBody['countedPoints'])
             modifyBody['archive'] = str(modifyBody['archive'])
 
-            # 生成创建时间参数
+            # 生成创建日期参数
             modifyBody['createdAt'] = bjs_to_utc(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()))
 
             for modifyParamsKey in modifyParams.keys():
@@ -390,7 +922,9 @@ class Task(Project):
             url = '/api/task/case/task/projects/{0}/tasks/{1}'.format(self.projectId, taskId)
 
             resp = req_exec(method, url, data=data, username=userName)
-        return resp
+            return resp
+        else:
+            raise Exception('暂无此任务,请核实后操作')
 
     def archive_task(self, taskName, userName=env.USERNAME_PM):
         """
@@ -412,7 +946,7 @@ class Task(Project):
         """
         任务完结并复制
         :param taskName: 任务名称
-        :param copy: 是否复制，默认复制
+        :param copy: 是否复制,默认复制
         :param score: 任务分数
         :param attr: 态度分数
         :param remark: 评分备注
@@ -510,16 +1044,17 @@ class Task(Project):
         # 获取评论ID
         replyIdList = self.query_replies_id_by_user(taskName, contentUser=contentUser, userName=userName)
 
-        resp = None
-        for replyId in replyIdList:
-            method = 'DELETE'
-            data = {}
-            url = '/api/task/case/task/projects/{0}/tasks/{1}/reply/{2}'.format(self.projectId, taskId, replyId)
+        if replyIdList:
+            for replyId in replyIdList:
+                method = 'DELETE'
+                data = {}
+                url = '/api/task/case/task/projects/{0}/tasks/{1}/reply/{2}'.format(self.projectId, taskId, replyId)
 
-            resp = req_exec(method, url, data=data, username=userName)
-            if resp['content']['msg'] != 'success' or resp['content']['data'] != '删除成功':
-                return resp
-        return resp
+                resp = req_exec(method, url, data=data, username=userName)
+                if resp['content']['msg'] != 'success' or resp['content']['data'] != '删除成功':
+                    return resp
+        else:
+            raise Exception('暂无此用户评论,请核实后操作')
 
     def get_task(self, taskName, userName=env.USERNAME_PG):
         """
@@ -622,7 +1157,11 @@ class Task(Project):
         :return:
         """
         resp = self.query_tasks(archive=archive, assign=assign, executor=executor, userName=userName)
-        return get_value_from_resp(resp['content'], 'taskId', 'title', taskName)
+        taskId = get_value_from_resp(resp['content'], 'taskId', 'title', taskName)
+        if taskId:
+            return taskId
+        else:
+            raise Exception('暂无此任务,请核实后操作')
 
     def query_task_replies(self, taskName, userName=env.USERNAME_PM):
         """
@@ -654,6 +1193,8 @@ class Task(Project):
             for reply in replyList:
                 if reply['content'] == content:
                     return reply['replyId']
+                else:
+                    raise Exception('暂无此评论,请核实后操作')
         else:
             raise Exception('该任务暂无评论')
 
@@ -686,22 +1227,22 @@ class Plan(Project):
     项目计划
     """
 
-    def __init__(self, projectName):
+    def __init__(self, projectName, userName=env.USERNAME_PM):
         super(Plan, self).__init__()
         self.task = Task(projectName)
-        self.projectId = self.query_project_id_by_name(projectName)
+        self.projectId = self.query_project_id_by_name(projectName, userName=userName)
 
     def create_plan(self, planName, description='', startTime='', endTime='', userName=env.USERNAME_PM):
         """
         创建计划
         :param planName: 计划名称
         :param description: 计划描述
-        :param startTime: 计划开始时间:默认为当天 %Y-%m-%d
-        :param endTime: 计划结束时间:默认为第二天 %Y-%m-%d
+        :param startTime: 计划开始日期:默认为系统当前日期 %Y-%m-%d
+        :param endTime: 计划结束日期:默认为第二天 %Y-%m-%d
         :param userName: 默认为PM角色
         :return:
         """
-        # 获取当天日期
+        # 获取系统当前日期
         if not startTime:
             startTime = time.strftime('%Y-%m-%d', time.localtime(time.time()))
         if not endTime:
@@ -783,7 +1324,11 @@ class Plan(Project):
         :return:
         """
         resp = self.query_plans(userName=userName)
-        return get_value_from_resp(resp['content'], 'planId', 'name', planName)
+        planId = get_value_from_resp(resp['content'], 'planId', 'name', planName)
+        if planId:
+            return planId
+        else:
+            raise Exception('暂无此计划,请核实后操作')
 
     def query_tasks_by_plan(self, planName, userName=env.USERNAME_PM):
         """
@@ -803,10 +1348,10 @@ class ComprehensiveEvaluation(Project):
     综合评价
     """
 
-    def __init__(self, projectName):
+    def __init__(self, projectName, userName=env.USERNAME_PM):
         super(ComprehensiveEvaluation, self).__init__()
         self.user = User()
-        self.projectId = self.query_project_id_by_name(projectName)
+        self.projectId = self.query_project_id_by_name(projectName, userName=userName)
 
     def query_manage_report(self, userName=env.USERNAME_PM):
         """
@@ -866,8 +1411,10 @@ class Document(Project):
     项目文档
     """
 
-    def __init__(self, projectName):
+    def __init__(self, projectName, userName=env.USERNAME_PM):
         super(Document, self).__init__()
+        self.projectName = projectName
+        self.projectId = self.query_project_id_by_name(projectName, userName=userName)
 
 
 class Member(Project):
@@ -875,10 +1422,11 @@ class Member(Project):
     项目人员
     """
 
-    def __init__(self, projectName):
+    def __init__(self, projectName, userName=env.USERNAME_PM):
         super(Member, self).__init__()
         self.user = User()
-        self.projectId = self.query_project_id_by_name(projectName)
+        self.projectName = projectName
+        self.projectId = self.query_project_id_by_name(projectName, userName=userName)
 
     def query_members(self, userName=env.USERNAME_PM):
         """
@@ -892,44 +1440,38 @@ class Member(Project):
         resp = req_exec(method, url, username=userName)
         return resp
 
-    def query_roles(self, userName=env.USERNAME_PM):
+    def create_recruit(self, postName, postSum=None, postJobShare=None, postType=None, roleType='项目管理',
+                       postDescription='', startTime='', endTime='', userName=env.USERNAME_PM):
         """
-        查询角色
+        新增招募信息
+        :param postName: 岗位名称
+        :param postSum: 招募人数
+        :param postJobShare: 职位全时率
+        :param postType: 职位类型: 1:Java后端
+                                 2:Web前端
+                                 3:手机前端
+                                 4:小程序
+                                 5:UI
+                                 6:测试
+        :param roleType: 角色类型
+        :param postDescription: 职位描述
+        :param startTime: 开始日期
+        :param endTime: 结束日期
         :param userName: 默认为PM角色
         :return:
         """
-        method = 'GET'
-        url = '/api/task/case/task/projects/{0}/roles'.format(self.projectId)
-
-        resp = req_exec(method, url, username=userName)
-        return resp
-
-    def create_recruit(self, postName, postSum=None, postJobShare=None, postType=None, postDescription='',
-                       startTime='', endTime='', userName=env.USERNAME_PM):
-        """
-
-        :param postName:
-        :param postSum:
-        :param postJobShare:
-        :param postType:
-        :param postDescription:
-        :param startTime:
-        :param endTime:
-        :param userName:
-        :return:
-        """
         # 获取proRoleId
-        resp = self.query_roles(userName=userName)
-        proRoleId = get_value_from_resp(resp['content'], 'proRoleId', 'projectId', self.projectId)
+        proRoleId = self.query_role_id_by_name(roleName=roleType, projectName=self.projectName, userName=userName)
 
-        # 获取当天日期
+        # 获取系统当前日期
         if not startTime:
             startTime = time.strftime('%Y-%m-%d', time.localtime(time.time()))
         if not endTime:
             endTime = time.strftime('%Y-%m-%d', time.localtime(time.time() + 24 * 3600))
 
-        startTime = utc_to_gmt(startTime, utc_fmt="%Y-%m-%d")
-        endTime = utc_to_gmt(endTime, utc_fmt="%Y-%m-%d")
+        # UTC格式日期转GMT格式,默认为8点
+        startTime = utc_to_gmt(startTime, utc_fmt="%Y-%m-%d").replace('00:00:00', '08:00:00')
+        endTime = utc_to_gmt(endTime, utc_fmt="%Y-%m-%d").replace('00:00:00', '08:00:00')
 
         method = 'POST'
         url = '/api/task/case/task/project/recruit?'
@@ -949,30 +1491,195 @@ class Member(Project):
         resp = req_exec(method, url, data=data, username=userName)
         return resp
 
+    def modify_recruit(self, postName, userName=env.USERNAME_PM, **modifyParams):
+        """
+        修改招募信息
+        :param postName: 岗位名称
+        :param userName: 默认为PM角色
+        :param modifyParams: newPostName: 待修改岗位名称
+                             postSum: 招募人数
+                             postJobShare: 职位全时率
+                             postType: 职位类型: 1:Java后端
+                                               2:Web前端
+                                               3:手机前端
+                                               4:小程序
+                                               5:UI
+                                               6:测试
+                             postDescription: 职位描述
+                             startTime: 开始日期
+                             endTime: 结束日期
+        :return:
+        """
+        resp = self.query_recruit_info_by_name(postName)
+        if resp:
+            # 获取招募信息ID
+            recruitId = resp['recruitId']
 
-class ProjectSetting(object):
-    """
-    项目设置
-    """
+            # 复制原招募信息
+            modifyBody = resp
+            del modifyBody['recruitId']
+            del modifyBody['inPlaceSum']
+            del modifyBody['createdAt']
+            del modifyBody['updatedAt']
+            modifyBody['postJobShare'] = int(modifyBody['postJobShare'])
 
-    def __init__(self):
-        pass
+            # UTC格式日期转GMT格式
+            modifyBody['startTime'] = utc_to_gmt(modifyBody['startTime'], utc_fmt='%Y-%m-%d').replace(
+                '00:00:00', '08:00:00')
+            modifyBody['endTime'] = utc_to_gmt(modifyBody['endTime'], utc_fmt='%Y-%m-%d').replace(
+                '00:00:00', '08:00:00')
+
+            for modifyParamsKey in modifyParams.keys():
+                if modifyParamsKey == 'newPostName':
+                    modifyBody['postName'] = modifyParams[modifyParamsKey]
+                if modifyParamsKey == 'postSum':
+                    modifyBody['postSum'] = modifyParams[modifyParamsKey]
+                if modifyParamsKey == 'postJobShare':
+                    modifyBody['postJobShare'] = modifyParams[modifyParamsKey]
+                if modifyParamsKey == 'postType':
+                    modifyBody['postType'] = modifyParams[modifyParamsKey]
+                if modifyParamsKey == 'postDescription':
+                    modifyBody['postDescription'] = modifyParams[modifyParamsKey]
+                if modifyParamsKey == 'startTime':
+                    modifyBody['startTime'] = utc_to_gmt(modifyParams[modifyParamsKey], utc_fmt='%Y-%m-%d').replace(
+                        '00:00:00', '08:00:00')
+                if modifyParamsKey == 'endTime':
+                    modifyBody['endTime'] = utc_to_gmt(modifyParams[modifyParamsKey], utc_fmt='%Y-%m-%d').replace(
+                        '00:00:00', '08:00:00')
+            method = 'PATCH'
+            data = modifyBody
+            url = '/api/task/case/task/project/recruit/{0}'.format(recruitId)
+
+            resp = req_exec(method, url, data=data, username=userName)
+            return resp
+        else:
+            raise Exception('暂无此招募信息,请核实后操作')
+
+    def operate_recruit(self, postName, openFlag=True, userName=env.USERNAME_PM):
+        """
+        打开或关闭招募信息
+        :param postName: 岗位名称
+        :param openFlag: 是否打开
+        :param userName: 默认为PM角色
+        :return:
+        """
+        resp = self.query_recruit_info_by_name(postName)
+        if resp:
+            # 获取招募信息ID
+            recruitId = resp['recruitId']
+
+            # 复制原招募信息
+            data = resp
+            del data['recruitId']
+            del data['inPlaceSum']
+            del data['createdAt']
+            del data['updatedAt']
+            data['postJobShare'] = int(data['postJobShare'])
+
+            # UTC格式日期转GMT格式
+            data['startTime'] = utc_to_gmt(data['startTime'], utc_fmt='%Y-%m-%d').replace(
+                '00:00:00', '08:00:00')
+            data['endTime'] = utc_to_gmt(data['endTime'], utc_fmt='%Y-%m-%d').replace(
+                '00:00:00', '08:00:00')
+
+            if openFlag:
+                data['openFlag'] = 1
+            else:
+                data['openFlag'] = 0
+            method = 'PATCH'
+            url = '/api/task/case/task/project/recruit/{0}'.format(recruitId)
+
+            resp = req_exec(method, url, data=data, username=userName)
+            return resp
+        else:
+            raise Exception('暂无此招募信息,请核实后操作')
+
+    def delete_recruit(self, postName, userName=env.USERNAME_PM):
+        """
+        删除招募信息
+        :param postName: 岗位名称
+        :param userName: 默认为PM角色
+        :return:
+        """
+        recruitId = self.query_recruit_id_by_name(postName)
+        method = 'DELETE'
+        data = {}
+        url = '/api/task/case/task/project/recruit/{0}'.format(recruitId)
+
+        resp = req_exec(method, url, data=data, username=userName)
+        return resp
+
+    def query_recruits(self, userName=env.USERNAME_PM):
+        """
+        查询当前项目招募信息
+        :param userName:
+        :return:
+        """
+        method = 'GET'
+        url = '/api/task/case/task/project/{0}/recruit/'.format(self.projectId)
+
+        resp = req_exec(method, url, username=userName)
+        return resp
+
+    def query_recruit_info_by_name(self, postName, userName=env.USERNAME_PM):
+        """
+        根据岗位名称获取招募信息
+        :param postName: 岗位名称
+        :param userName: 默认为PM角色
+        :return:
+        """
+        resp = self.query_recruits(userName=userName)
+        recruitList = resp['content']['data']['list']
+        if recruitList:
+            for recruit in recruitList:
+                if recruit['postName'] == postName:
+                    return recruit
+            else:
+                raise Exception('暂无该招募信息,请核实后操作')
+        else:
+            raise Exception('该项目暂无招募信息,请核实后操作')
+
+    def query_recruit_id_by_name(self, postName, userName=env.USERNAME_PM):
+        """
+        根据岗位名称获取招募信息ID
+        :param postName: 岗位名称
+        :param userName: 默认为PM角色
+        :return:
+        """
+        resp = self.query_recruits(userName=userName)
+        recruitId = get_value_from_resp(resp['content'], 'recruitId', 'postName', postName)
+        if recruitId:
+            return recruitId
+        else:
+            raise Exception('暂无此招募信息,请核实后操作')
 
 
 if __name__ == '__main__':
     pass
+    config = ReadConfig()
+
     # pm = Project()
     # pm.query_projects()
-    # print(pm.query_project_id_by_name('中文名称项目1'))
-    # pm.create_project(projectName='中文名称项目111')
-    # pm.approve_project(projectName='中文名称项目111')
+    # print(pm.query_project_id_by_name(projectName='test_中文名称项目'))
+    # pm.create_project(projectName='test_中文名称项目')
+    # pm.approve_project(projectName='test_中文名称项目', approveStatus=2)
     # pm.modify_project(projectName='中文名称项目11', newProjectName='中文名称项目22', description='中文名称项目描述',
     #                   startTime='2021-08-12', endTime='2021-08-31')
     # pm.disable_or_archive_project(projectName='中文名称项目22', operationType='disable', filterType='filter')
     # pm.operate_project(projectName='中文名称项目22', applyType=3)
     # pm.approve_project(projectName='中文名称项目22')
+    # pm.query_web_hook(projectName='test_中文名称项目')
+    # print(pm.query_role_id_by_name(roleName='项目管理', projectName='test_中文名称项目'))
+    # pm.modify_role(roleName='项目管理1', projectName='test_中文名称项目', newRoleName='项目管理', createTask=0, updateTask=0)
+    # pm.query_task_status(projectName='test_中文名称项目', bugFlag=1)
+    # print(pm.query_status_id_by_name(statusName='未开发', projectName='test_中文名称项目'))
+    # pm.modify_status(statusName='未开发1', projectName='test_中文名称项目', newStatusName='未开发')
+    # pm.modify_status(statusName='轻微1', projectName='test_中文名称项目', bugFlag=1, newStatusName='轻微')
+    # pm.modify_task_type(typeName='开发任务1', projectName='test_中文名称项目', newTypeName='开发任务')
+    # pm.modify_task_priority(priorityName='普通', projectName='test_中文名称项目', newPriorityName='普通', defaultMark=1,
+    #                         priorityColor=config.get_color('Purple'))
 
-    # tm = Task('中文名称项目111')
+    # tm = Task('test_中文名称项目')
     # tm.query_index_data()
     # tm.query_tasks()
     # print(tm.query_task_id_by_name(taskName='task1'))
@@ -993,18 +1700,28 @@ if __name__ == '__main__':
     # tm.delete_replies_by_user(taskName='test11', contentUser=env.USERNAME_PM)
     # tm.give_red_flower(taskName='test4')
 
-    # plan = Plan('中文名称项目111')
+    # plan = Plan('test_中文名称项目')
     # plan.create_plan(planName='中文测试')
     # plan.query_plans()
     # print(plan.query_plan_id_by_name(planName='中文测试'))
     # plan.query_plan_info_by_name(planName='中文测试')
     # plan.query_plan_tasks(planName='中文测试')
 
-    # ce = ComprehensiveEvaluation('中文名称项目111')
+    # ce = ComprehensiveEvaluation('test_中文名称项目')
     # ce.query_manage_report()
     # ce.query_member_report()
     # ce.query_added_value_report()
     # ce.query_internal_evaluation()
 
-    m = Member('中文名称项目111')
-    m.create_recruit(postName='中文测试123', postSum=10, postJobShare=50, postType=4)
+    # m = Member('test_中文名称项目')
+    # m.create_recruit(postName='中文测试1234', postSum=10, postJobShare=50, postType=4, postDescription='中文测试1234',
+    #                  startTime='2021-8-6', endTime='2021-8-6')
+    # m.modify_recruit(postName='CICS', newPostName='中文测试1234', postSum=100, postJobShare=20, postType=6,
+    #                  postDescription='CICS', startTime='2021-8-10', endTime='2021-8-10')
+    # m.operate_recruit(postName='中文测试1234', openFlag=True)
+    # m.delete_recruit(postName='中文测试1234')
+    # m.query_recruits()
+    # try:
+    #     m.query_recruit_info_by_name('test123')
+    # except Exception as e:
+    #     print(e)
