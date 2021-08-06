@@ -53,8 +53,8 @@ class ApiDriver:
         return dict({'content': json.loads(response.text), 'retCode': response.status_code})
 
     @staticmethod
-    def post(url, data, headers=None):
-        response = requests.post(url=url, data=data, headers=headers, verify=False)
+    def post(url, data, files, headers=None):
+        response = requests.post(url=url, data=data, files=files, headers=headers, verify=False)
         return dict({'content': json.loads(response.text), 'retCode': response.status_code})
 
     @staticmethod
@@ -73,12 +73,13 @@ class ApiDriver:
         return dict({'content': json.loads(response.text), 'retCode': response.status_code})
 
 
-def req_exec(method, url, data=None, headers=None, username=env.USERNAME_PG, password=env.USER_PWD):
+def req_exec(method, url, data=None, files=None, headers=None, username=env.USERNAME_PG, password=env.USER_PWD):
     """
     接口执行
-    :param method:接口请求方式
+    :param method: 接口请求方式
     :param url: 接口url
-    :param data:接口入参
+    :param data: 接口入参
+    :param files: 文件参数
     :param headers: 接口请求头
     :param username: 登录账号
     :param password: 登录密码
@@ -95,12 +96,15 @@ def req_exec(method, url, data=None, headers=None, username=env.USERNAME_PG, pas
 
     # form data数据处理
     print_data = data
-    if method != 'GET':
+    if method != 'GET' and not files:
         headers['Content-Type'] = 'multipart/form-data; boundary=----WebKitFormBoundaryE5rQMWaGDbOsS38U'
         mfd = MultipartFormData()
         data = mfd.format(reqData=data, headers=headers)
         # 中文参数统一处理
         data = data.encode('utf-8')
+
+    if files:
+        del headers['Content-Type']
 
     # url拼接
     if not url.startswith('/'):
@@ -112,7 +116,7 @@ def req_exec(method, url, data=None, headers=None, username=env.USERNAME_PG, pas
     if method == 'GET':
         response = api_driver.get(url, headers=headers)
     elif method == 'POST':
-        response = api_driver.post(url, data, headers=headers)
+        response = api_driver.post(url, data, files, headers=headers)
     elif method == 'PATCH':
         response = api_driver.patch(url, data, headers=headers)
     elif method == 'PUT':

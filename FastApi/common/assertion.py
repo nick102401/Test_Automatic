@@ -7,8 +7,6 @@ import traceback
 
 from FastApi.common.log import Logger
 
-log = Logger().logger
-
 
 class Assertions:
     def __init__(self):
@@ -101,6 +99,7 @@ class Assertions:
 
 
 def log_error(e, actual, expected):
+    log = Logger(level='error').logger
     log.error(str(e))
     log.error('actual results is %s, expected results is %s ' % (actual, expected))
     # config = Config.Read_config()

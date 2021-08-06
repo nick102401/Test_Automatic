@@ -1,6 +1,8 @@
 import ast
 import time
 
+from urllib3 import encode_multipart_formdata
+
 from FastApi.aws.user import User
 from FastApi.common.base_api import req_exec
 from FastApi.aws.tempate import Temps
@@ -1416,6 +1418,22 @@ class Document(Project):
         self.projectName = projectName
         self.projectId = self.query_project_id_by_name(projectName, userName=userName)
 
+    def upload_document(self, fileName, userName=env.USERNAME_PM):
+        method = 'POST'
+        url = '/api/task/case/task/{0}/upload'.format(self.projectId)
+        data = {
+            "allOnly": False,
+            "createrOnly": True,
+            "desc": '',
+            "fileName": fileName,
+            "projectOnly": False,
+            "title": fileName
+        }
+        files = {'file': ('fileName', open('../data/' + fileName + '', 'rb'), 'application/*')}
+
+        resp = req_exec(method, url, data=data, files=files, username=userName)
+        return resp
+
 
 class Member(Project):
     """
@@ -1684,7 +1702,7 @@ if __name__ == '__main__':
     # tm.query_tasks()
     # print(tm.query_task_id_by_name(taskName='task1'))
     # print(tm.query_task_info_by_name(taskName='task2'))
-    # tm.create_task(taskName='中文任务', deadLine='2021-8-5', taskGetDateLine='2021-8-6', planName='中文测试')
+    # tm.create_task(taskName='中文任务123', deadLine='2021-8-5', taskGetDateLine='2021-8-6')
     # tm.copy_task(taskName='task1')
     # tm.modify_task(taskName='task1', newTaskName='test11', description='test', points='15', countedPoints='5',
     #                deadLine='2021-8-16', taskGetDateLine='2021-8-15')
@@ -1712,6 +1730,10 @@ if __name__ == '__main__':
     # ce.query_member_report()
     # ce.query_added_value_report()
     # ce.query_internal_evaluation()
+
+    # doc = Document('test_中文名称项目')
+    # doc.upload_document('Jenkins流水线配置.docx')
+    # doc.upload_document('管理员.xlsx')
 
     # m = Member('test_中文名称项目')
     # m.create_recruit(postName='中文测试1234', postSum=10, postJobShare=50, postType=4, postDescription='中文测试1234',
