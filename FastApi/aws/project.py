@@ -1,8 +1,6 @@
 import ast
 import time
 
-from urllib3 import encode_multipart_formdata
-
 from FastApi.aws.user import User
 from FastApi.common.base_api import req_exec
 from FastApi.aws.tempate import Temps
@@ -1298,7 +1296,7 @@ class Plan(Project):
                                                                                           self.perPage)
         # 计划完成状态
         if status == 2:
-            url += url + '&status=2'
+            url += '&status=2'
 
         resp = req_exec(method, url, username=userName)
         return resp
@@ -1418,15 +1416,33 @@ class Document(Project):
         self.projectName = projectName
         self.projectId = self.query_project_id_by_name(projectName, userName=userName)
 
-    def upload_document(self, fileName, userName=env.USERNAME_PM):
+    def upload_document(self, fileName, isPublic=0, userName=env.USERNAME_PM):
+        """
+        上传文件
+        :param fileName: 文件名
+        :param isPublic: 是否公开: 0:个人可见  ————默认个人可见
+                                 1:项目可见
+                                 2:全员可见
+        :param userName: 默认为PM角色
+        :return:
+        """
+        allOnly = False
+        projectOnly = False
+        createrOnly = False
+        if isPublic == 0:
+            createrOnly = True
+        elif isPublic == 1:
+            projectOnly = True
+        elif isPublic == 2:
+            allOnly = True
         method = 'POST'
         url = '/api/task/case/task/{0}/upload'.format(self.projectId)
         data = {
-            "allOnly": False,
-            "createrOnly": True,
+            "allOnly": allOnly,
+            "createrOnly": createrOnly,
             "desc": '',
             "fileName": fileName,
-            "projectOnly": False,
+            "projectOnly": projectOnly,
             "title": fileName
         }
         files = {'file': ('fileName', open('../data/' + fileName + '', 'rb'), 'application/*')}
@@ -1462,7 +1478,7 @@ class Member(Project):
                        postDescription='', startTime='', endTime='', userName=env.USERNAME_PM):
         """
         新增招募信息
-        :param postName: 岗位名称
+        :param postName: 职位名称
         :param postSum: 招募人数
         :param postJobShare: 职位全时率
         :param postType: 职位类型: 1:Java后端
@@ -1512,9 +1528,9 @@ class Member(Project):
     def modify_recruit(self, postName, userName=env.USERNAME_PM, **modifyParams):
         """
         修改招募信息
-        :param postName: 岗位名称
+        :param postName: 职位名称
         :param userName: 默认为PM角色
-        :param modifyParams: newPostName: 待修改岗位名称
+        :param modifyParams: newPostName: 待修改职位名称
                              postSum: 招募人数
                              postJobShare: 职位全时率
                              postType: 职位类型: 1:Java后端
@@ -1576,7 +1592,7 @@ class Member(Project):
     def operate_recruit(self, postName, openFlag=True, userName=env.USERNAME_PM):
         """
         打开或关闭招募信息
-        :param postName: 岗位名称
+        :param postName: 职位名称
         :param openFlag: 是否打开
         :param userName: 默认为PM角色
         :return:
@@ -1615,7 +1631,7 @@ class Member(Project):
     def delete_recruit(self, postName, userName=env.USERNAME_PM):
         """
         删除招募信息
-        :param postName: 岗位名称
+        :param postName: 职位名称
         :param userName: 默认为PM角色
         :return:
         """
@@ -1641,8 +1657,8 @@ class Member(Project):
 
     def query_recruit_info_by_name(self, postName, userName=env.USERNAME_PM):
         """
-        根据岗位名称获取招募信息
-        :param postName: 岗位名称
+        根据职位名称获取招募信息
+        :param postName: 职位名称
         :param userName: 默认为PM角色
         :return:
         """
@@ -1659,8 +1675,8 @@ class Member(Project):
 
     def query_recruit_id_by_name(self, postName, userName=env.USERNAME_PM):
         """
-        根据岗位名称获取招募信息ID
-        :param postName: 岗位名称
+        根据职位名称获取招募信息ID
+        :param postName: 职位名称
         :param userName: 默认为PM角色
         :return:
         """
