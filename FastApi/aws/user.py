@@ -1,4 +1,4 @@
-from FastApi.common.base_api import req_exec
+from FastApi.base.base_api import req_exec
 from FastApi.common.common import Common
 from FastApi.common.helper import get_value_from_resp
 from FastApi.conf import env

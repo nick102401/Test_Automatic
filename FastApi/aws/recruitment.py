@@ -1,5 +1,5 @@
 from FastApi.aws.project import Project
-from FastApi.common.base_api import req_exec
+from FastApi.base.base_api import req_exec
 from FastApi.common.common import Common
 from FastApi.conf import env
 

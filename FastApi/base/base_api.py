@@ -4,7 +4,7 @@ import requests
 import warnings
 from requests_toolbelt import MultipartEncoder
 
-from FastApi.common.data_handle import MultipartFormData
+from FastApi.common.handle_data import MultipartFormData
 from FastApi.common.log import Logger
 from FastApi.conf import env
 
@@ -23,7 +23,7 @@ header = {
 
 class ApiDriver:
     """
-    登录
+    基本操作
     """
 
     def __init__(self, username, password):
@@ -31,6 +31,10 @@ class ApiDriver:
         self.password = password
 
     def login(self):
+        """
+        登录
+        :return:
+        """
         m = MultipartEncoder(fields={'operatorNo': self.username,
                                      'userPwd': self.password,
                                      'validCode': ''})
@@ -39,10 +43,27 @@ class ApiDriver:
         response = requests.post(url=url, data=m, headers={'Content-Type': m.content_type})
         return dict({'content': response.text, 'retCode': response.status_code})
 
+    def register(self):
+        """
+        注册
+        :return:
+        """
+        m = MultipartEncoder(fields={'operatorNo': self.username,
+                                     'userPwd': self.password,
+                                     'validCode': ''})
+        url = '/api/user/sign/up'
+        url = 'http://' + env.HOST + ':' + env.PORT + url
+        response = requests.post(url=url, data=m, headers={'Content-Type': m.content_type})
+        return dict({'content': response.text, 'retCode': response.status_code})
+
     def logout(self):
         pass
 
     def get_token(self):
+        """
+        获取token
+        :return:
+        """
         response = self.login()
         token = json.loads(response['content'])['data']['meta']['token']
         return token
